@@ -1,20 +1,9 @@
-"""
-Tetris - built with Pygame
-Controls:
-  LEFT / RIGHT : move piece
-  DOWN         : soft drop (move down one row)
-  UP           : rotate piece
-  SPACE        : hard drop (slam to the bottom)
-  ESC          : quit after game over
-"""
+
 
 import pygame
 import random
 import sys
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 CELL_SIZE = 30
 BOARD_WIDTH = 10
 BOARD_HEIGHT = 20
@@ -76,7 +65,6 @@ LINE_SCORES = [0, 40, 100, 300, 1200]  # points for 0/1/2/3/4 lines cleared
 # Classes
 # ---------------------------------------------------------------------------
 class GameObject:
-    """Base class for anything with a board position that can draw itself."""
 
     def __init__(self, x, y):
         self.x = x
@@ -87,7 +75,6 @@ class GameObject:
 
 
 class Tetromino(GameObject):
-    """A single falling piece. Inherits position/draw contract from GameObject."""
 
     def __init__(self, shape_key):
         super().__init__(x=BOARD_WIDTH // 2 - 2, y=0)
@@ -96,7 +83,6 @@ class Tetromino(GameObject):
         self.matrix = [row[:] for row in SHAPE_TEMPLATES[shape_key]]
 
     def cells(self):
-        """Absolute (col, row) board positions this piece currently occupies."""
         return [
             (self.x + c, self.y + r)
             for r, row in enumerate(self.matrix)
@@ -117,7 +103,6 @@ class Tetromino(GameObject):
 
 
 class Board:
-    """Owns the grid of locked-in blocks, collision checks, and line clears."""
 
     def __init__(self, width, height):
         self.width = width
@@ -138,12 +123,23 @@ class Board:
                 self.grid[row][col] = piece.color
 
     def clear_lines(self):
-        remaining = [row for row in self.grid if any(cell is None for cell in row)]
-        cleared = self.height - len(remaining)
-        for _ in range(cleared):
-            remaining.insert(0, [None] * self.width)
-        self.grid = remaining
-        return cleared
+        full_rows = [r for r in range(self.height)
+                     if all(cell is not None for cell in self.grid[r])]
+        for r in full_rows:
+            for c in range(self.width):
+                self.grid[r][c] = None
+        if full_rows:
+            self._apply_column_gravity()
+        return len(full_rows)
+
+    def _apply_column_gravity(self):
+        """Each column's blocks fall independently to fill any gaps below them."""
+        for c in range(self.width):
+            column = [self.grid[r][c] for r in range(self.height) if self.grid[r][c] is not None]
+            padding = [None] * (self.height - len(column))
+            new_column = padding + column
+            for r in range(self.height):
+                self.grid[r][c] = new_column[r]
 
     def draw(self, surface):
         for r in range(self.height):
@@ -155,7 +151,6 @@ class Board:
 
 
 class Game:
-    """Owns the main loop: input handling, gravity, scoring, rendering."""
 
     def __init__(self):
         pygame.init()
